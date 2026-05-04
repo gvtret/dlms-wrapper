@@ -1,11 +1,120 @@
 #include "dlms/wrapper/wrapper_codec.hpp"
 
+#include "dlms/wrapper/wrapper_ports.hpp"
+
 namespace dlms {
 namespace wrapper {
 
 bool WrapperCodecSkeletonAvailable()
 {
   return true;
+}
+
+WrapperCodecLimits DefaultWrapperCodecLimits()
+{
+  WrapperCodecLimits limits;
+  limits.maximumDataSize = kMaximumWrapperDataLength;
+  limits.maximumFrameSize = kMaximumWrapperFrameLength;
+  return limits;
+}
+
+namespace {
+
+void WriteUint16(std::uint16_t value, std::uint8_t* output)
+{
+  output[0] = static_cast<std::uint8_t>((value >> 8) & 0xffu);
+  output[1] = static_cast<std::uint8_t>(value & 0xffu);
+}
+
+std::uint16_t ReadUint16(const std::uint8_t* input)
+{
+  return static_cast<std::uint16_t>(
+    (static_cast<std::uint16_t>(input[0]) << 8) |
+    static_cast<std::uint16_t>(input[1]));
+}
+
+} // namespace
+
+WrapperStatus EncodeWrapperHeader(
+  const WrapperHeader& header,
+  std::uint8_t* output,
+  std::size_t outputSize,
+  std::size_t& writtenSize)
+{
+  writtenSize = 0;
+
+  if (output == 0) {
+    return WrapperStatus::InvalidArgument;
+  }
+
+  if (header.version != kWrapperVersion) {
+    return WrapperStatus::InvalidVersion;
+  }
+
+  if (outputSize < kWrapperHeaderSize) {
+    return WrapperStatus::OutputBufferTooSmall;
+  }
+
+  WriteUint16(header.version, output);
+  WriteUint16(header.sourcePort, output + 2);
+  WriteUint16(header.destinationPort, output + 4);
+  WriteUint16(header.dataLength, output + 6);
+
+  writtenSize = kWrapperHeaderSize;
+  return WrapperStatus::Ok;
+}
+
+WrapperStatus DecodeWrapperHeader(
+  const std::uint8_t* input,
+  std::size_t inputSize,
+  WrapperHeader& header)
+{
+  if (input == 0 && inputSize != 0) {
+    return WrapperStatus::InvalidArgument;
+  }
+
+  if (inputSize < kWrapperHeaderSize) {
+    return WrapperStatus::NeedMoreData;
+  }
+
+  header.version = ReadUint16(input);
+  header.sourcePort = ReadUint16(input + 2);
+  header.destinationPort = ReadUint16(input + 4);
+  header.dataLength = ReadUint16(input + 6);
+
+  if (header.version != kWrapperVersion) {
+    return WrapperStatus::InvalidVersion;
+  }
+
+  return WrapperStatus::Ok;
+}
+
+WrapperStatus ValidateWrapperHeader(
+  const WrapperHeader& header,
+  const WrapperCodecLimits& limits,
+  std::size_t availableDataSize)
+{
+  if (header.version != kWrapperVersion) {
+    return WrapperStatus::InvalidVersion;
+  }
+
+  if (header.dataLength > limits.maximumDataSize) {
+    return WrapperStatus::DataTooLarge;
+  }
+
+  if (kWrapperHeaderSize + header.dataLength > limits.maximumFrameSize) {
+    return WrapperStatus::FrameTooLarge;
+  }
+
+  if (availableDataSize < header.dataLength) {
+    return WrapperStatus::NeedMoreData;
+  }
+
+  if (availableDataSize > header.dataLength) {
+    return WrapperStatus::InvalidLength;
+  }
+
+  return WrapperStatus::Ok;
 }
 
 } // namespace wrapper
