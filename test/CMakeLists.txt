@@ -10,6 +10,8 @@ elseif(NOT TARGET GTest::gtest_main)
 endif()
 
 add_executable(dlms_wrapper_tests
+  wrapper/test_wrapper_c_api.cpp
+  wrapper/test_wrapper_c_header.c
   wrapper/test_wrapper_codec.cpp
   wrapper/test_wrapper_error.cpp
   wrapper/test_wrapper_ports.cpp
