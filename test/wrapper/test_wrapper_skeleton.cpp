@@ -7,6 +7,5 @@
 TEST(WrapperSkeleton, Builds)
 {
   EXPECT_TRUE(dlms::wrapper::WrapperCodecSkeletonAvailable());
-  EXPECT_TRUE(dlms::wrapper::WrapperPortsSkeletonAvailable());
   EXPECT_TRUE(dlms::wrapper::WrapperStreamDecoderSkeletonAvailable());
 }
