@@ -5,6 +5,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <vector>
 
 namespace dlms {
 namespace wrapper {
@@ -34,6 +35,18 @@ WrapperStatus ValidateWrapperHeader(
   const WrapperHeader& header,
   const WrapperCodecLimits& limits,
   std::size_t availableDataSize);
+
+WrapperStatus EncodeWpduToBuffer(
+  const WrapperFrame& frame,
+  const WrapperCodecLimits& limits,
+  std::uint8_t* output,
+  std::size_t outputSize,
+  std::size_t& writtenSize);
+
+WrapperStatus EncodeWpdu(
+  const WrapperFrame& frame,
+  const WrapperCodecLimits& limits,
+  std::vector<std::uint8_t>& output);
 
 } // namespace wrapper
 } // namespace dlms

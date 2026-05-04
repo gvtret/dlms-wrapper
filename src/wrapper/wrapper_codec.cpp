@@ -2,6 +2,8 @@
 
 #include "dlms/wrapper/wrapper_ports.hpp"
 
+#include <vector>
+
 namespace dlms {
 namespace wrapper {
 
@@ -114,6 +116,102 @@ WrapperStatus ValidateWrapperHeader(
     return WrapperStatus::InvalidLength;
   }
 
+  return WrapperStatus::Ok;
+}
+
+WrapperStatus EncodeWpduToBuffer(
+  const WrapperFrame& frame,
+  const WrapperCodecLimits& limits,
+  std::uint8_t* output,
+  std::size_t outputSize,
+  std::size_t& writtenSize)
+{
+  writtenSize = 0;
+
+  if (output == 0) {
+    return WrapperStatus::InvalidArgument;
+  }
+
+  if (frame.data == 0 && frame.dataSize != 0) {
+    return WrapperStatus::InvalidArgument;
+  }
+
+  if (IsNoStationWrapperPort(frame.sourcePort)) {
+    return WrapperStatus::InvalidSourcePort;
+  }
+
+  if (IsNoStationWrapperPort(frame.destinationPort)) {
+    return WrapperStatus::InvalidDestinationPort;
+  }
+
+  if (frame.dataSize > kMaximumWrapperDataLength ||
+      frame.dataSize > limits.maximumDataSize) {
+    return WrapperStatus::DataTooLarge;
+  }
+
+  const std::size_t frameSize = kWrapperHeaderSize + frame.dataSize;
+  if (frameSize > limits.maximumFrameSize) {
+    return WrapperStatus::FrameTooLarge;
+  }
+
+  if (outputSize < frameSize) {
+    return WrapperStatus::OutputBufferTooSmall;
+  }
+
+  WrapperHeader header;
+  header.version = kWrapperVersion;
+  header.sourcePort = frame.sourcePort;
+  header.destinationPort = frame.destinationPort;
+  header.dataLength = static_cast<std::uint16_t>(frame.dataSize);
+
+  std::size_t headerSize = 0;
+  const WrapperStatus headerStatus =
+    EncodeWrapperHeader(header, output, outputSize, headerSize);
+  if (headerStatus != WrapperStatus::Ok) {
+    return headerStatus;
+  }
+
+  for (std::size_t i = 0; i < frame.dataSize; ++i) {
+    output[kWrapperHeaderSize + i] = frame.data[i];
+  }
+
+  writtenSize = frameSize;
+  return WrapperStatus::Ok;
+}
+
+WrapperStatus EncodeWpdu(
+  const WrapperFrame& frame,
+  const WrapperCodecLimits& limits,
+  std::vector<std::uint8_t>& output)
+{
+  output.clear();
+
+  if (frame.dataSize > kMaximumWrapperDataLength ||
+      frame.dataSize > limits.maximumDataSize) {
+    return WrapperStatus::DataTooLarge;
+  }
+
+  const std::size_t frameSize = kWrapperHeaderSize + frame.dataSize;
+  if (frameSize > limits.maximumFrameSize) {
+    return WrapperStatus::FrameTooLarge;
+  }
+
+  try {
+    output.resize(frameSize);
+  } catch (...) {
+    output.clear();
+    return WrapperStatus::InternalError;
+  }
+
+  std::size_t writtenSize = 0;
+  const WrapperStatus status =
+    EncodeWpduToBuffer(frame, limits, &output[0], output.size(), writtenSize);
+  if (status != WrapperStatus::Ok) {
+    output.clear();
+    return status;
+  }
+
+  output.resize(writtenSize);
   return WrapperStatus::Ok;
 }
 
