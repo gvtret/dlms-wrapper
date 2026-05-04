@@ -270,4 +270,193 @@ TEST(WrapperWpduEncoderTest, EnforcesLimits)
             EncodeWpdu(frame, limits, output));
 }
 
+TEST(WrapperWpduDecoderTest, DecodesEmptyData)
+{
+  const std::uint8_t input[] = {
+    0x00, 0x01,
+    0x00, 0x10,
+    0x00, 0x01,
+    0x00, 0x00
+  };
+
+  WrapperFrameBuffer output;
+  ASSERT_EQ(WrapperStatus::Ok,
+            DecodeWpdu(input, sizeof(input), DefaultWrapperCodecLimits(), output));
+
+  EXPECT_EQ(kPublicClient, output.sourcePort);
+  EXPECT_EQ(kManagementLogicalDevice, output.destinationPort);
+  EXPECT_TRUE(output.data.empty());
+}
+
+TEST(WrapperWpduDecoderTest, DecodesApduPayload)
+{
+  const std::uint8_t input[] = {
+    0x00, 0x01,
+    0x00, 0x10,
+    0x00, 0x01,
+    0x00, 0x04,
+    0xc0, 0x01, 0x81, 0x00
+  };
+
+  WrapperFrame view;
+  ASSERT_EQ(WrapperStatus::Ok,
+            DecodeWpduView(input, sizeof(input), DefaultWrapperCodecLimits(), view));
+
+  EXPECT_EQ(kPublicClient, view.sourcePort);
+  EXPECT_EQ(kManagementLogicalDevice, view.destinationPort);
+  ASSERT_EQ(4u, view.dataSize);
+  EXPECT_EQ(0xc0u, view.data[0]);
+  EXPECT_EQ(0x01u, view.data[1]);
+  EXPECT_EQ(0x81u, view.data[2]);
+  EXPECT_EQ(0x00u, view.data[3]);
+}
+
+TEST(WrapperWpduDecoderTest, PreservesPayloadByte7e)
+{
+  const std::uint8_t input[] = {
+    0x00, 0x01,
+    0x00, 0x10,
+    0x00, 0x01,
+    0x00, 0x03,
+    0xc0, 0x7e, 0x00
+  };
+
+  WrapperFrameBuffer output;
+  ASSERT_EQ(WrapperStatus::Ok,
+            DecodeWpdu(input, sizeof(input), DefaultWrapperCodecLimits(), output));
+
+  const std::uint8_t expected[] = {0xc0, 0x7e, 0x00};
+  EXPECT_EQ(std::vector<std::uint8_t>(expected, expected + sizeof(expected)),
+            output.data);
+}
+
+TEST(WrapperWpduDecoderTest, ReportsNeedMoreDataForIncompleteWpdu)
+{
+  const std::uint8_t shortHeader[] = {0x00, 0x01};
+  WrapperFrameBuffer output;
+  EXPECT_EQ(WrapperStatus::NeedMoreData,
+            DecodeWpdu(shortHeader,
+                       sizeof(shortHeader),
+                       DefaultWrapperCodecLimits(),
+                       output));
+
+  const std::uint8_t shortData[] = {
+    0x00, 0x01,
+    0x00, 0x10,
+    0x00, 0x01,
+    0x00, 0x02,
+    0xc0
+  };
+  EXPECT_EQ(WrapperStatus::NeedMoreData,
+            DecodeWpdu(shortData,
+                       sizeof(shortData),
+                       DefaultWrapperCodecLimits(),
+                       output));
+}
+
+TEST(WrapperWpduDecoderTest, RejectsTrailingBytesAsInvalidLength)
+{
+  const std::uint8_t input[] = {
+    0x00, 0x01,
+    0x00, 0x10,
+    0x00, 0x01,
+    0x00, 0x01,
+    0xc0, 0xff
+  };
+
+  WrapperFrameBuffer output;
+  EXPECT_EQ(WrapperStatus::InvalidLength,
+            DecodeWpdu(input, sizeof(input), DefaultWrapperCodecLimits(), output));
+}
+
+TEST(WrapperWpduDecoderTest, RejectsInvalidVersionAndPorts)
+{
+  const std::uint8_t invalidVersion[] = {
+    0x00, 0x02,
+    0x00, 0x10,
+    0x00, 0x01,
+    0x00, 0x00
+  };
+
+  WrapperFrameBuffer output;
+  EXPECT_EQ(WrapperStatus::InvalidVersion,
+            DecodeWpdu(invalidVersion,
+                       sizeof(invalidVersion),
+                       DefaultWrapperCodecLimits(),
+                       output));
+
+  const std::uint8_t invalidSource[] = {
+    0x00, 0x01,
+    0x00, 0x00,
+    0x00, 0x01,
+    0x00, 0x00
+  };
+  EXPECT_EQ(WrapperStatus::InvalidSourcePort,
+            DecodeWpdu(invalidSource,
+                       sizeof(invalidSource),
+                       DefaultWrapperCodecLimits(),
+                       output));
+
+  const std::uint8_t invalidDestination[] = {
+    0x00, 0x01,
+    0x00, 0x10,
+    0x00, 0x00,
+    0x00, 0x00
+  };
+  EXPECT_EQ(WrapperStatus::InvalidDestinationPort,
+            DecodeWpdu(invalidDestination,
+                       sizeof(invalidDestination),
+                       DefaultWrapperCodecLimits(),
+                       output));
+}
+
+TEST(WrapperWpduDecoderTest, EnforcesLimits)
+{
+  const std::uint8_t input[] = {
+    0x00, 0x01,
+    0x00, 0x10,
+    0x00, 0x01,
+    0x00, 0x02,
+    0xc0, 0x01
+  };
+
+  WrapperCodecLimits limits = DefaultWrapperCodecLimits();
+  limits.maximumDataSize = 1u;
+
+  WrapperFrameBuffer output;
+  EXPECT_EQ(WrapperStatus::DataTooLarge,
+            DecodeWpdu(input, sizeof(input), limits, output));
+
+  limits.maximumDataSize = 2u;
+  limits.maximumFrameSize = 9u;
+  EXPECT_EQ(WrapperStatus::FrameTooLarge,
+            DecodeWpdu(input, sizeof(input), limits, output));
+}
+
+TEST(WrapperWpduDecoderTest, RoundtripsEncodedWpdu)
+{
+  const std::uint8_t apdu[] = {0xc0, 0x01, 0x7e, 0x00};
+
+  WrapperFrame frame;
+  frame.sourcePort = kPublicClient;
+  frame.destinationPort = kManagementLogicalDevice;
+  frame.data = apdu;
+  frame.dataSize = sizeof(apdu);
+
+  std::vector<std::uint8_t> encoded;
+  ASSERT_EQ(WrapperStatus::Ok,
+            EncodeWpdu(frame, DefaultWrapperCodecLimits(), encoded));
+
+  WrapperFrameBuffer decoded;
+  ASSERT_EQ(WrapperStatus::Ok,
+            DecodeWpdu(&encoded[0],
+                       encoded.size(),
+                       DefaultWrapperCodecLimits(),
+                       decoded));
+
+  EXPECT_EQ(frame.sourcePort, decoded.sourcePort);
+  EXPECT_EQ(frame.destinationPort, decoded.destinationPort);
+  EXPECT_EQ(std::vector<std::uint8_t>(apdu, apdu + sizeof(apdu)), decoded.data);
+}
+
 } // namespace

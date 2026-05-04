@@ -48,5 +48,17 @@ WrapperStatus EncodeWpdu(
   const WrapperCodecLimits& limits,
   std::vector<std::uint8_t>& output);
 
+WrapperStatus DecodeWpduView(
+  const std::uint8_t* input,
+  std::size_t inputSize,
+  const WrapperCodecLimits& limits,
+  WrapperFrame& output);
+
+WrapperStatus DecodeWpdu(
+  const std::uint8_t* input,
+  std::size_t inputSize,
+  const WrapperCodecLimits& limits,
+  WrapperFrameBuffer& output);
+
 } // namespace wrapper
 } // namespace dlms

@@ -215,5 +215,79 @@ WrapperStatus EncodeWpdu(
   return WrapperStatus::Ok;
 }
 
+WrapperStatus DecodeWpduView(
+  const std::uint8_t* input,
+  std::size_t inputSize,
+  const WrapperCodecLimits& limits,
+  WrapperFrame& output)
+{
+  output.sourcePort = 0;
+  output.destinationPort = 0;
+  output.data = 0;
+  output.dataSize = 0;
+
+  WrapperHeader header;
+  const WrapperStatus headerStatus =
+    DecodeWrapperHeader(input, inputSize, header);
+  if (headerStatus != WrapperStatus::Ok) {
+    return headerStatus;
+  }
+
+  const std::size_t availableDataSize = inputSize - kWrapperHeaderSize;
+  const WrapperStatus validationStatus =
+    ValidateWrapperHeader(header, limits, availableDataSize);
+  if (validationStatus != WrapperStatus::Ok) {
+    return validationStatus;
+  }
+
+  if (IsNoStationWrapperPort(header.sourcePort)) {
+    return WrapperStatus::InvalidSourcePort;
+  }
+
+  if (IsNoStationWrapperPort(header.destinationPort)) {
+    return WrapperStatus::InvalidDestinationPort;
+  }
+
+  output.sourcePort = header.sourcePort;
+  output.destinationPort = header.destinationPort;
+  output.dataSize = header.dataLength;
+  output.data = header.dataLength == 0 ? 0 : input + kWrapperHeaderSize;
+  return WrapperStatus::Ok;
+}
+
+WrapperStatus DecodeWpdu(
+  const std::uint8_t* input,
+  std::size_t inputSize,
+  const WrapperCodecLimits& limits,
+  WrapperFrameBuffer& output)
+{
+  output.sourcePort = 0;
+  output.destinationPort = 0;
+  output.data.clear();
+
+  WrapperFrame view;
+  const WrapperStatus status = DecodeWpduView(input, inputSize, limits, view);
+  if (status != WrapperStatus::Ok) {
+    return status;
+  }
+
+  try {
+    if (view.dataSize == 0) {
+      output.data.clear();
+    } else {
+      output.data.assign(view.data, view.data + view.dataSize);
+    }
+  } catch (...) {
+    output.sourcePort = 0;
+    output.destinationPort = 0;
+    output.data.clear();
+    return WrapperStatus::InternalError;
+  }
+
+  output.sourcePort = view.sourcePort;
+  output.destinationPort = view.destinationPort;
+  return WrapperStatus::Ok;
+}
+
 } // namespace wrapper
 } // namespace dlms
