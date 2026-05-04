@@ -16,6 +16,7 @@ add_executable(dlms_wrapper_tests
   wrapper/test_wrapper_error.cpp
   wrapper/test_wrapper_ports.cpp
   wrapper/test_wrapper_stream_decoder.cpp
+  wrapper/test_wrapper_vectors.cpp
   wrapper/test_wrapper_skeleton.cpp)
 
 target_link_libraries(dlms_wrapper_tests
