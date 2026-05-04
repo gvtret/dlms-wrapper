@@ -25,6 +25,9 @@ target_include_directories(dlms_wrapper
   PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
+set(DLMS_WRAPPER_HAS_CODEC_API ON CACHE INTERNAL
+  "dlms-wrapper exposes the codec API required by root integration tests")
+
 if(DLMS_BUILD_TESTS)
   enable_testing()
   add_subdirectory(test)
