@@ -7,11 +7,6 @@
 namespace dlms {
 namespace wrapper {
 
-bool WrapperCodecSkeletonAvailable()
-{
-  return true;
-}
-
 WrapperCodecLimits DefaultWrapperCodecLimits()
 {
   WrapperCodecLimits limits;

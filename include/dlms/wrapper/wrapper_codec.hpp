@@ -10,8 +10,6 @@
 namespace dlms {
 namespace wrapper {
 
-bool WrapperCodecSkeletonAvailable();
-
 struct WrapperCodecLimits
 {
   std::size_t maximumDataSize;

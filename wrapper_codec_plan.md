@@ -510,7 +510,7 @@ Commit message:
 docs(wrapper): define wrapper layer requirements
 ```
 
-### Phase 1. Project skeleton
+### Phase 1. Project structure
 
 Result:
 
@@ -532,7 +532,7 @@ ctest --test-dir build
 Commit message:
 
 ```text
-build(wrapper): add wrapper project skeleton
+build(wrapper): add wrapper project structure
 ```
 
 ### Phase 2. Status/error model
@@ -823,7 +823,7 @@ AE registry
 
 ## 21. Next practical step
 
-Start with requirements and skeleton:
+Start with requirements and project structure:
 
 ```text
 1. docs/00_wrapper_requirements.md
@@ -831,9 +831,9 @@ Start with requirements and skeleton:
 3. docs/02_wrapper_c_api.md
 4. docs/03_wrapper_stream_decoder.md
 5. docs/04_wrapper_test_plan.md
-6. CMake skeleton
+6. CMake project structure
 7. empty library target
-8. GoogleTest skeleton
+8. GoogleTest harness
 9. WrapperStatus
 10. wPort helpers
 ```
